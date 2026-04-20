@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Credit Card Fraud Detector</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0c10;
+    --panel:     #111520;
+    --border:    #1e2535;
+    --accent:    #00e5a0;
+    --accent2:   #3d7bff;
+    --fraud:     #ff4d6a;
+    --legit:     #00e5a0;
+    --text:      #e8edf5;
+    --muted:     #5a6480;
+    --lr:        #3498db;
+    --rf:        #e67e22;
+    --gb:        #9b59b6;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Top nav ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 2rem;
+    padding: .9rem 2.5rem;
+    background: rgba(10,12,16,.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav .logo {
+    font-size: 1.1rem; font-weight: 800; letter-spacing: -.02em;
+    color: var(--accent);
+  }
+  nav .logo span { color: var(--text); }
+  nav a {
+    font-size: .85rem; color: var(--muted); text-decoration: none;
+    font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    transition: color .2s;
+  }
+  nav a:hover { color: var(--accent); }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 5rem 2.5rem 3.5rem;
+    max-width: 900px;
+  }
+  .hero-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .72rem; color: var(--accent); letter-spacing: .12em;
+    background: rgba(0,229,160,.08); border: 1px solid rgba(0,229,160,.25);
+    padding: .28rem .75rem; border-radius: 2px; margin-bottom: 1.4rem;
+  }
+  h1 {
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 800; line-height: 1.1;
+    letter-spacing: -.04em;
+  }
+  h1 em { color: var(--accent); font-style: normal; }
+  .hero p {
+    margin-top: 1.1rem; font-size: 1.05rem;
+    color: var(--muted); max-width: 640px; line-height: 1.65;
+  }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin: 0 2.5rem 3rem;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .stat {
+    background: var(--panel);
+    padding: 1.4rem 1.8rem;
+    display: flex; flex-direction: column; gap: .35rem;
+  }
+  .stat-val {
+    font-size: 1.85rem; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+  }
+  .stat-val.fraud-val { color: var(--fraud); }
+  .stat-val.best-val { color: var(--accent2); font-size: 1.1rem; }
+  .stat-label {
+    font-size: .75rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em; font-weight: 600;
+  }
+
+  /* ── Sections ── */
+  section {
+    padding: 0 2.5rem 4rem;
+  }
+  .section-title {
+    font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: .75rem;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── Charts grid ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+    gap: 1.5rem;
+  }
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .chart-card.wide { grid-column: 1 / -1; }
+  .chart-header {
+    padding: 1rem 1.4rem .8rem;
+    border-bottom: 1px solid var(--border);
+    font-size: .8rem; font-weight: 700; letter-spacing: .06em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .chart-body {
+    padding: 1.2rem;
+    min-height: 220px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .chart-body img { width: 100%; border-radius: 4px; }
+  .chart-body .loader {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .85rem; color: var(--muted);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Metrics table ── */
+  .metrics-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: .85rem;
+  }
+  thead tr { border-bottom: 2px solid var(--border); }
+  thead th {
+    padding: .9rem 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+    color: var(--muted); text-transform: uppercase;
+    text-align: right; white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+  tbody td {
+    padding: .85rem 1.2rem;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .82rem;
+  }
+  tbody td:first-child {
+    text-align: left;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: .88rem;
+  }
+  .model-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: .5rem;
+  }
+  .best-row td { background: rgba(0,229,160,.04); }
+  .best-row td:first-child::after {
+    content: ' ★'; color: var(--accent); font-size: .7rem;
+  }
+
+  /* ── Predict panel ── */
+  .predict-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2rem 2.2rem;
+  }
+  .predict-panel h2 {
+    font-size: 1.15rem; font-weight: 800; margin-bottom: .4rem;
+  }
+  .predict-panel p {
+    font-size: .88rem; color: var(--muted); margin-bottom: 1.8rem;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: .9rem;
+    margin-bottom: 1.5rem;
+  }
+  .form-group label {
+    display: block; font-size: .72rem; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: .35rem;
+  }
+  .form-group input {
+    width: 100%;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: .85rem;
+    padding: .55rem .8rem;
+    transition: border-color .2s;
+    outline: none;
+  }
+  .form-group input:focus { border-color: var(--accent2); }
+
+  .v-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: .6rem;
+    margin-bottom: 1.5rem;
+  }
+  .v-grid .form-group label { font-size: .65rem; }
+  .v-grid .form-group input { padding: .42rem .6rem; font-size: .78rem; }
+
+  .form-actions {
+    display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;
+  }
+  .btn {
+    padding: .65rem 1.8rem;
+    border-radius: 6px; border: none; cursor: pointer;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: .9rem; letter-spacing: .03em;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+  /* ── Result cards ── */
+  .results-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1.8rem;
+  }
+  .result-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.4rem;
+    position: relative; overflow: hidden;
+    transition: border-color .2s;
+  }
+  .result-card.fraud   { border-color: var(--fraud); }
+  .result-card.legit   { border-color: var(--legit); }
+  .result-card .rc-model {
+    font-size: .72rem; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: .6rem;
+  }
+  .result-card .rc-label {
+    font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em;
+    margin-bottom: .5rem;
+  }
+  .result-card.fraud .rc-label { color: var(--fraud); }
+  .result-card.legit .rc-label { color: var(--legit); }
+  .result-card .rc-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .9rem; color: var(--muted);
+  }
+  .prob-bar {
+    height: 3px; border-radius: 2px; margin-top: .9rem;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .prob-fill {
+    height: 100%; border-radius: 2px;
+    transition: width .6s cubic-bezier(.4,0,.2,1);
+  }
+  .result-card.fraud .prob-fill { background: var(--fraud); }
+  .result-card.legit .prob-fill { background: var(--legit); }
+
+  .hidden { display: none !important; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 2.5rem;
+    font-size: .78rem; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: .5rem;
+  }
+  footer strong { color: var(--text); }
+
+  @media(max-width:680px) {
+    nav { padding: .75rem 1.2rem; gap: 1rem; }
+    .hero, section, .stats-bar, footer { padding-left: 1.2rem; padding-right: 1.2rem; }
+    .stats-bar { margin-left: 1.2rem; margin-right: 1.2rem; }
+    .results-row { grid-template-columns: 1fr; }
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="logo">Fraud<span>Detect</span></span>
+  <a href="#overview">Overview</a>
+  <a href="#charts">Charts</a>
+  <a href="#metrics">Metrics</a>
+  <a href="#predict">Predict</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="overview">
+  <div class="hero-badge">ML · Credit Card Fraud Detection</div>
+  <h1>Detect fraud with<br><em>machine learning.</em></h1>
+  <p>Three classifiers trained on the ULB Kaggle dataset — Logistic Regression, Random Forest, and Gradient Boosting. Explore charts, compare metrics, and run live predictions.</p>
+</div>
+
+<!-- STATS -->
+<div class="stats-bar" id="stats-bar">
+  <div class="stat"><span class="stat-val" id="s-total">—</span><span class="stat-label">Total Transactions</span></div>
+  <div class="stat"><span class="stat-val fraud-val" id="s-fraud">—</span><span class="stat-label">Fraud Cases</span></div>
+  <div class="stat"><span class="stat-val" id="s-legit">—</span><span class="stat-label">Legitimate</span></div>
+  <div class="stat"><span class="stat-val fraud-val" id="s-pct">—</span><span class="stat-label">Fraud %</span></div>
+  <div class="stat"><span class="stat-val best-val" id="s-best">—</span><span class="stat-label">Best Model</span></div>
+</div>
+
+<!-- CHARTS -->
+<section id="charts">
+  <div class="section-title">Exploratory Analysis</div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-header">Class Distribution</div>
+      <div class="chart-body" id="ch-class"><span class="loader">loading…</span></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">Transaction Amount Distribution</div>
+      <div class="chart-body" id="ch-amount"><span class="loader">loading…</span></div>
+    </div>
+    <div class="chart-card wide">
+      <div class="chart-header">Model Comparison — Accuracy / Precision / Recall / F1</div>
+      <div class="chart-body" id="ch-compare"><span class="loader">loading…</span></div>
+    </div>
+    <div class="chart-card wide">
+      <div class="chart-header">Confusion Matrices</div>
+      <div class="chart-body" id="ch-confusion"><span class="loader">loading…</span></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">ROC Curves</div>
+      <div class="chart-body" id="ch-roc"><span class="loader">loading…</span></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">Feature Importance (RF &amp; GB)</div>
+      <div class="chart-body" id="ch-feat"><span class="loader">loading…</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- METRICS -->
+<section id="metrics">
+  <div class="section-title">Performance Metrics</div>
+  <div class="metrics-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Accuracy %</th>
+          <th>Precision %</th>
+          <th>Recall %</th>
+          <th>F1 Score %</th>
+          <th>AUC-ROC</th>
+          <th>MCC</th>
+          <th>Kappa</th>
+          <th>Log Loss</th>
+          <th>Z-Score</th>
+        </tr>
+      </thead>
+      <tbody id="metrics-body">
+        <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- PREDICT -->
+<section id="predict">
+  <div class="section-title">Live Prediction</div>
+  <div class="predict-panel">
+    <h2>Classify a Transaction</h2>
+    <p>Enter transaction details. V1–V28 are PCA-transformed features from the dataset. Leave at 0 if unknown — or click <strong>"Load Sample"</strong> repeatedly to cycle through 8 different fraud &amp; legitimate transaction profiles.</p>
+
+    <!-- Amount + Time -->
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Amount ($)</label>
+        <input type="number" id="p-amount" value="0" step="0.01"/>
+      </div>
+      <div class="form-group">
+        <label>Time (sec)</label>
+        <input type="number" id="p-time" value="0" step="1"/>
+      </div>
+    </div>
+
+    <!-- V1–V28 -->
+    <div class="section-title" style="font-size:.65rem;margin-bottom:.8rem">PCA Features V1–V28</div>
+    <div class="v-grid" id="v-inputs"></div>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="runPredict()">Run Prediction</button>
+      <button class="btn btn-ghost" id="btn-fraud" onclick="loadRealSample('fraud')" style="border-color:var(--fraud);color:var(--fraud)">🚨 Load Fraud Sample</button>
+      <button class="btn btn-ghost" id="btn-legit" onclick="loadRealSample('legit')" style="border-color:var(--legit);color:var(--legit)">✅ Load Legit Sample</button>
+      <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+    </div>
+
+    <!-- Results -->
+    <div class="results-row hidden" id="results-row"></div>
+  </div>
+</section>
+
+<footer>
+  <span><strong>FraudDetect</strong> — Credit Card Fraud Detection Dashboard &nbsp;|&nbsp; <span style="color:var(--legit)">v3 · real dataset samples</span></span>
+  <span>Dataset: ULB Kaggle · Models: LR · RF · GB</span>
+</footer>
+
+<script>
+// ── Build V1-V28 inputs ──────────────────────────────────────
+const vGrid = document.getElementById('v-inputs');
+for (let i = 1; i <= 28; i++) {
+  vGrid.innerHTML += `
+    <div class="form-group">
+      <label>V${i}</label>
+      <input type="number" id="v${i}" value="0" step="0.0001"/>
+    </div>`;
+}
+
+// ── Fetch helpers ────────────────────────────────────────────
+async function loadChart(url, elId) {
+  const el = document.getElementById(elId);
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    el.innerHTML = `<img src="data:image/png;base64,${d.img}" alt="chart"/>`;
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--fraud);font-size:.8rem">Failed to load chart</span>`;
+  }
+}
+
+async function loadOverview() {
+  const r = await fetch('/api/overview');
+  const d = await r.json();
+  document.getElementById('s-total').textContent = d.total.toLocaleString();
+  document.getElementById('s-fraud').textContent = d.fraud.toLocaleString();
+  document.getElementById('s-legit').textContent = d.legitimate.toLocaleString();
+  document.getElementById('s-pct').textContent   = d.fraud_pct + '%';
+  document.getElementById('s-best').textContent  = d.best_model;
+}
+
+const MODEL_COLORS = {
+  'Logistic Regression': '#3498db',
+  'Random Forest':       '#e67e22',
+  'Gradient Boosting':   '#9b59b6',
+};
+
+async function loadMetrics() {
+  const r = await fetch('/api/metrics');
+  const d = await r.json();
+  const body = document.getElementById('metrics-body');
+  body.innerHTML = '';
+  d.metrics.forEach(m => {
+    const isBest = m.model === d.best;
+    const dot = `<span class="model-dot" style="background:${MODEL_COLORS[m.model]||'#888'}"></span>`;
+    body.innerHTML += `
+      <tr class="${isBest ? 'best-row' : ''}">
+        <td>${dot}${m.model}</td>
+        <td>${m['Accuracy']}</td>
+        <td>${m['Precision']}</td>
+        <td>${m['Recall']}</td>
+        <td>${m['F1 Score']}</td>
+        <td>${m['AUC-ROC']}</td>
+        <td>${m['MCC']}</td>
+        <td>${m["Cohen's Kappa"]}</td>
+        <td>${m['Log Loss']}</td>
+        <td>${m['Z-Score']}</td>
+      </tr>`;
+  });
+}
+
+// ── Prediction ───────────────────────────────────────────────
+async function runPredict() {
+  const payload = {
+    amount: parseFloat(document.getElementById('p-amount').value) || 0,
+    time:   parseFloat(document.getElementById('p-time').value)   || 0,
+  };
+  for (let i = 1; i <= 28; i++) {
+    payload[`V${i}`] = parseFloat(document.getElementById(`v${i}`).value) || 0;
+  }
+
+  const row = document.getElementById('results-row');
+  row.innerHTML = '<span class="loader" style="grid-column:1/-1">Running models…</span>';
+  row.classList.remove('hidden');
+
+  try {
+    const r = await fetch('/api/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.error) { row.innerHTML = `<span style="color:var(--fraud)">${d.error}</span>`; return; }
+
+    row.innerHTML = '';
+    d.predictions.forEach(p => {
+      const cls = p.label === 'FRAUD' ? 'fraud' : 'legit';
+      row.innerHTML += `
+        <div class="result-card ${cls}">
+          <div class="rc-model">
+            <span class="model-dot" style="background:${p.color}"></span>${p.model}
+          </div>
+          <div class="rc-label">${p.label}</div>
+          <div class="rc-pct">Fraud probability: <strong>${p.fraud_pct}%</strong></div>
+          <div class="prob-bar">
+            <div class="prob-fill" style="width:${p.fraud_pct}%"></div>
+          </div>
+        </div>`;
+    });
+  } catch(e) {
+    row.innerHTML = `<span style="color:var(--fraud)">Prediction failed: ${e.message}</span>`;
+  }
+}
+
+// ── Load real sample from dataset via API ─────────────────────
+async function loadRealSample(type) {
+  const btnMap = { fraud: 'btn-fraud', legit: 'btn-legit' };
+  const btn = document.getElementById(btnMap[type]);
+  if (btn) btn.textContent = 'Loading...';
+
+  try {
+    const r = await fetch(`/api/sample?type=${type}`);
+    const d = await r.json();
+
+    document.getElementById('p-amount').value = d.amount;
+    document.getElementById('p-time').value   = d.time;
+    for (let i = 1; i <= 28; i++) {
+      document.getElementById(`v${i}`).value = d[`V${i}`];
+    }
+
+    if (btn) {
+      btn.textContent = type === 'fraud' ? '🚨 Load Fraud Sample' : '✅ Load Legit Sample';
+    }
+  } catch(e) {
+    if (btn) btn.textContent = 'Error — retry';
+    console.error('Sample load failed:', e);
+  }
+}
+
+function clearForm() {
+  document.getElementById('p-amount').value = 0;
+  document.getElementById('p-time').value   = 0;
+  for (let i = 1; i <= 28; i++) document.getElementById(`v${i}`).value = 0;
+  const row = document.getElementById('results-row');
+  row.classList.add('hidden');
+  row.innerHTML = '';
+}
+
+// ── Init ─────────────────────────────────────────────────────
+(async () => {
+  loadOverview();
+  loadMetrics();
+  loadChart('/api/chart/class_dist',          'ch-class');
+  loadChart('/api/chart/amount_dist',         'ch-amount');
+  loadChart('/api/chart/model_compare',       'ch-compare');
+  loadChart('/api/chart/confusion',           'ch-confusion');
+  loadChart('/api/chart/roc',                 'ch-roc');
+  loadChart('/api/chart/feature_importance',  'ch-feat');
+})();
+</script>
+</body>
+</html>
